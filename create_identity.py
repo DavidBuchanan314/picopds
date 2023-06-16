@@ -9,11 +9,7 @@ import base64
 import requests
 import json
 
-
-HANDLE = "david.dev.retr0.id"
-PDS_URL = "https://pds.dev.retr0.id"
-PLC_SERVER = "https://plc.bsky-sandbox.dev"
-
+from config import HANDLE, PDS_SERVER, PLC_SERVER
 
 def create_did_web_pubkey(pubkey: ec.EllipticCurvePublicKey):
 	assert(type(pubkey.curve) is ec.SECP256K1)
@@ -55,7 +51,7 @@ genesis = {
 	"services": {
 		"atproto_pds": {
 			"type": "AtprotoPersonalDataServer",
-			"endpoint": PDS_URL
+			"endpoint": "https://" + PDS_SERVER
 		}
 	},
 	"prev": None,
@@ -89,7 +85,7 @@ print("Created DID:", plc)
 
 print("Publishing...")
 
-plc_url = PLC_SERVER + "/" + plc
+plc_url = "https://" + PLC_SERVER + "/" + plc
 r = requests.post(plc_url, json=signed_genesis)
 print(r, r.content)
 assert(r.ok)
