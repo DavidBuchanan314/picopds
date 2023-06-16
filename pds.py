@@ -80,6 +80,14 @@ async def server_create_session(request: web.Request):
 		"did": DID_PLC
 	})
 
+@authenticated
+async def server_get_session(request: web.Request):
+	return web.json_response({
+		"handle": HANDLE,
+		"did": DID_PLC,
+		"email": "email@example.org",
+	})
+
 async def identity_resolve_handle(request: web.Request):
 	async with client.get(f"https://{APPVIEW_SERVER}/xrpc/com.atproto.identity.resolveHandle", params=request.query) as r:
 		return web.json_response(await r.json())
@@ -181,7 +189,8 @@ async def main():
 
 		web.get ("/xrpc/com.atproto.identity.resolveHandle", identity_resolve_handle),
 		web.get ("/xrpc/com.atproto.server.describeServer", server_describe_server),
-		web.post("/xrpc/com.atproto.server.createSession", server_create_session)
+		web.post("/xrpc/com.atproto.server.createSession", server_create_session),
+		web.get ("/xrpc/com.atproto.server.getSession", server_get_session),
 	])
 
 	cors = aiohttp_cors.setup(app, defaults={
