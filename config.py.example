@@ -5,3 +5,6 @@ APPVIEW_SERVER = "api.bsky-sandbox.dev"
 HANDLE = "david.dev.retr0.id"
 PDS_SERVER = "pds.dev.retr0.id"
 DID_PLC = "did:plc:fzgsygoeg2ydv73mlu76o54x" # update with output from create_identity.py
+
+# definitely change this!!!
+JWT_ACCESS_SECRET = "281e1a58a26cfbdbddcb183378174604b76bea9ffe6ff658c91cd3530613a829"

@@ -162,3 +162,4 @@ cython_debug/
 # don't commit key material!!!
 privkey.pem
 did_plc.txt
+config.py
