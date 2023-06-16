@@ -1,11 +1,16 @@
 import asyncio
+import logging
 import aiohttp_cors
 import aiohttp
+import dag_cbor
 from aiohttp import web
 import jwt_monkeypatch as jwt
+from typing import Set
 import time
 
 from config import DID_PLC, HANDLE, PASSWORD, JWT_ACCESS_SECRET, APPVIEW_SERVER
+
+logging.basicConfig(level=logging.DEBUG)
 
 privkey = open("privkey.pem", "rb").read()
 APPVIEW_AUTH = {
@@ -52,8 +57,17 @@ def authenticated(handler):
 	return authentication_handler
 
 preferences = {"preferences": []}
+firehose_queues: Set[asyncio.Queue] = set()
+firehose_queues_lock = asyncio.Lock()
+
+async def firehose_broadcast(msg: bytes):
+	async with firehose_queues_lock:  # make sure it can't change while we iterate
+		for queue in firehose_queues:
+			await queue.put(msg)
 
 async def hello(request: web.Request):
+	event = dag_cbor.encode({"t": "#info", "op": 1}) + dag_cbor.encode({"name": "retr0.id/info", "message": "Hello, world!"})
+	await firehose_broadcast(event)
 	return web.Response(text="Hello, world!")
 
 
@@ -93,6 +107,27 @@ async def identity_resolve_handle(request: web.Request):
 	async with client.get(f"https://{APPVIEW_SERVER}/xrpc/com.atproto.identity.resolveHandle", params=request.query) as r:
 		return web.json_response(await r.json(), status=r.status)
 
+async def sync_subscribe_repos(request: web.Request):
+	ws = web.WebSocketResponse()
+	await ws.prepare(request)
+
+	queue = asyncio.Queue()
+	async with firehose_queues_lock:
+		firehose_queues.add(queue)
+
+	print("NEW FIREHOSE CLIENT", request.remote, request.forwarded)
+
+	try:
+		while True:
+			await ws.send_bytes(await queue.get())
+	except ConnectionResetError:
+		await ws.close()
+		return ws
+	finally:
+		async with firehose_queues_lock:
+			firehose_queues.remove(queue)
+
+
 @authenticated
 async def bsky_actor_get_preferences(request: web.Request):
 	return web.json_response(preferences)
@@ -114,6 +149,16 @@ async def bsky_actor_search_actors_typeahead(request: web.Request):
 @authenticated
 async def bsky_graph_get_lists(request: web.Request):
 	async with client.get(f"https://{APPVIEW_SERVER}/xrpc/app.bsky.graph.getLists", params=request.query, headers=APPVIEW_AUTH) as r:
+		return web.json_response(await r.json(), status=r.status)
+
+@authenticated
+async def bsky_graph_get_follows(request: web.Request):
+	async with client.get(f"https://{APPVIEW_SERVER}/xrpc/app.bsky.graph.getFollows", params=request.query, headers=APPVIEW_AUTH) as r:
+		return web.json_response(await r.json(), status=r.status)
+
+@authenticated
+async def bsky_graph_get_followers(request: web.Request):
+	async with client.get(f"https://{APPVIEW_SERVER}/xrpc/app.bsky.graph.getFollowers", params=request.query, headers=APPVIEW_AUTH) as r:
 		return web.json_response(await r.json(), status=r.status)
 
 @authenticated
@@ -159,6 +204,11 @@ async def bsky_feed_get_feed_generator(request: web.Request):
 		return web.json_response(await r.json(), status=r.status)
 
 @authenticated
+async def bsky_feed_get_feed_generators(request: web.Request):
+	async with client.get(f"https://{APPVIEW_SERVER}/xrpc/app.bsky.feed.getFeedGenerators", params=request.query, headers=APPVIEW_AUTH) as r:
+		return web.json_response(await r.json(), status=r.status)
+
+@authenticated
 async def bsky_feed_get_post_thread(request: web.Request):
 	async with client.get(f"https://{APPVIEW_SERVER}/xrpc/app.bsky.feed.getPostThread", params=request.query, headers=APPVIEW_AUTH) as r:
 		return web.json_response(await r.json(), status=r.status)
@@ -166,6 +216,11 @@ async def bsky_feed_get_post_thread(request: web.Request):
 @authenticated
 async def bsky_feed_get_posts(request: web.Request):
 	async with client.get(f"https://{APPVIEW_SERVER}/xrpc/app.bsky.feed.getPosts", params=request.query, headers=APPVIEW_AUTH) as r:
+		return web.json_response(await r.json(), status=r.status)
+
+@authenticated
+async def bsky_feed_get_likes(request: web.Request):
+	async with client.get(f"https://{APPVIEW_SERVER}/xrpc/app.bsky.feed.getLikes", params=request.query, headers=APPVIEW_AUTH) as r:
 		return web.json_response(await r.json(), status=r.status)
 
 @authenticated
@@ -191,20 +246,25 @@ async def main():
 		web.post("/xrpc/app.bsky.notification.updateSeen", bsky_notification_update_seen),
 
 		web.get ("/xrpc/app.bsky.graph.getLists", bsky_graph_get_lists),
+		web.get ("/xrpc/app.bsky.graph.getFollows", bsky_graph_get_follows),
+		web.get ("/xrpc/app.bsky.graph.getFollowers", bsky_graph_get_followers),
 
 		web.get ("/xrpc/app.bsky.feed.getTimeline", bsky_feed_get_timeline),
 		web.get ("/xrpc/app.bsky.feed.getAuthorFeed", bsky_feed_get_author_feed),
 		web.get ("/xrpc/app.bsky.feed.getActorFeeds", bsky_feed_get_actor_feeds),
 		web.get ("/xrpc/app.bsky.feed.getFeed", bsky_feed_get_feed),
 		web.get ("/xrpc/app.bsky.feed.getFeedGenerator", bsky_feed_get_feed_generator),
+		web.get ("/xrpc/app.bsky.feed.getFeedGenerators", bsky_feed_get_feed_generators),
 		web.get ("/xrpc/app.bsky.feed.getPostThread", bsky_feed_get_post_thread),
 		web.get ("/xrpc/app.bsky.feed.getPosts", bsky_feed_get_posts),
+		web.get ("/xrpc/app.bsky.feed.getLikes", bsky_feed_get_likes),
 		web.get ("/xrpc/app.bsky.unspecced.getPopularFeedGenerators", bsky_get_popular_feeds),
 
 		web.get ("/xrpc/com.atproto.identity.resolveHandle", identity_resolve_handle),
 		web.get ("/xrpc/com.atproto.server.describeServer", server_describe_server),
 		web.post("/xrpc/com.atproto.server.createSession", server_create_session),
 		web.get ("/xrpc/com.atproto.server.getSession", server_get_session),
+		web.get ("/xrpc/com.atproto.sync.subscribeRepos", sync_subscribe_repos),
 	])
 
 	cors = aiohttp_cors.setup(app, defaults={
@@ -220,7 +280,7 @@ async def main():
 	
 	runner = web.AppRunner(app)
 	await runner.setup()
-	site = web.TCPSite(runner, port=31337)
+	site = web.TCPSite(runner, host="localhost", port=31337)
 	await site.start()
 
 	while True:
