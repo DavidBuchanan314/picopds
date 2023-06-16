@@ -75,8 +75,17 @@ signed_genesis_bytes = dag_cbor.encode(signed_genesis)
 
 plc = "did:plc:" + base64.b32encode(hashlib.sha256(signed_genesis_bytes).digest())[:24].lower().decode()
 
-print(json.dumps(signed_genesis, indent="  "))
+json_blob = json.dumps(signed_genesis, indent="\t")
+
+with open("did_plc.txt", "w") as logfile:
+	print("Created DID:", plc, file=logfile)
+	print("", file=logfile)
+	print(json_blob, file=logfile)
+
+print(json_blob)
+print()
 print("Created DID:", plc)
+
 
 print("Publishing...")
 
