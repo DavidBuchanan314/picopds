@@ -8,3 +8,4 @@ DID_PLC = "did:plc:fzgsygoeg2ydv73mlu76o54x" # update with output from create_id
 
 # definitely change this!!!
 JWT_ACCESS_SECRET = "281e1a58a26cfbdbddcb183378174604b76bea9ffe6ff658c91cd3530613a829"
+PASSWORD = "changeme"

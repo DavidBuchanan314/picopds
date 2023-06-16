@@ -1,4 +1,4 @@
-import jwt
+import jwt_monkeypatch as jwt
 import time
 
 from config import DID_PLC, APPVIEW_SERVER, JWT_ACCESS_SECRET
@@ -24,3 +24,6 @@ auth = jwt.encode({
 }, JWT_ACCESS_SECRET, "HS256")
 
 print(auth)
+
+payload = jwt.decode(auth, JWT_ACCESS_SECRET, ["HS256"])
+print(payload)
