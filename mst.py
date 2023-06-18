@@ -209,14 +209,16 @@ class MSTNode(ABC):
 			keys=tree.keys[i:],
 			vals=tree.vals[i:]
 		)._to_optional()
-		created.add(left)
-		created.add(right)
+		if left is not None:
+			created.add(left)
+		if right is not None:
+			created.add(right)
 		return left, right
 
-	def delete(self, key: KTYPE) -> Self:
-		return self.__class__._from_optional(self._delete_recursive(key, self.key_height(key), self.height()))._squash_top()
+	def delete(self, key: KTYPE, created: set) -> Self:
+		return self.__class__._from_optional(self._delete_recursive(key, self.key_height(key), self.height(), created))._squash_top()
 
-	def _delete_recursive(self, key: KTYPE, key_height: int, tree_height: int) -> Optional[Self]:
+	def _delete_recursive(self, key: KTYPE, key_height: int, tree_height: int, created: set) -> Optional[Self]:
 		cls = self.__class__
 
 		if key_height > tree_height: # the key cannot possibly be in this tree, no change needed
@@ -225,15 +227,18 @@ class MSTNode(ABC):
 			i = self._gte_index(key)
 			if self.subtrees[i] is None:
 				return self # the key cannot be in this subtree, no change needed
-			return cls(
+			new = cls(
 				subtrees=tuple_replace_at(
 					self.subtrees,
 					i,
-					self.subtrees[i]._delete_recursive(key, key_height, tree_height - 1)
+					self.subtrees[i]._delete_recursive(key, key_height, tree_height - 1, created)
 				),
 				keys=self.keys,
 				vals=self.vals
 			)._to_optional()
+			if new is not None:
+				created.add(new)
+			return new
 		
 		i = self._gte_index(key)
 		if i == len(self.keys) or self.keys[i] != key:
@@ -241,30 +246,37 @@ class MSTNode(ABC):
 		
 		assert(self.keys[i] == key) # sanity check (should always be true)
 
-		return cls(
+		new = cls(
 			subtrees=self.subtrees[:i] + (
-				cls._merge(self.subtrees[i], self.subtrees[i + 1]),
+				cls._merge(self.subtrees[i], self.subtrees[i + 1], created),
 			) + self.subtrees[i + 2:],
 			keys=tuple_remove_at(self.keys, i),
 			vals=tuple_remove_at(self.vals, i)
 		)._to_optional()
+		if new is not None:
+			created.add(new)
+		return new
 	
 	@classmethod
-	def _merge(cls, left: Optional[Self], right: Optional[Self]) -> Optional[Self]:
+	def _merge(cls, left: Optional[Self], right: Optional[Self], created: set) -> Optional[Self]:
 		if left is None:
 			return right # includes the case where left == right == None
 		if right is None:
 			return left
-		return left.__class__(
+		new = left.__class__(
 			subtrees=left.subtrees[:-1] + (
 				cls._merge(
 					left.subtrees[-1],
-					right.subtrees[0]
+					right.subtrees[0],
+					created
 				),
 			 ) + right.subtrees[1:],
 			keys=left.keys + right.keys,
 			vals=left.vals + right.vals
 		)._to_optional()
+		if new is not None:
+			created.add(new)
+		return new
 
 
 # Nodes are immutable, the Tree class wraps them and provides a mutable interface
