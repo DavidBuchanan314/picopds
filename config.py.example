@@ -1,5 +1,6 @@
 PLC_SERVER = "plc.bsky-sandbox.dev"
 APPVIEW_SERVER = "api.bsky-sandbox.dev"
+BGS_SERVER = "bgs.bsky-sandbox.dev"
 
 # you will need to change these!!!
 HANDLE = "david.dev.retr0.id"
