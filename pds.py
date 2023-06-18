@@ -109,7 +109,8 @@ async def server_get_session(request: web.Request):
 		"email": "email@example.org",
 	})
 
-@authenticated
+#TODO: require auth if we can't answer it ourselves
+#@authenticated
 async def identity_resolve_handle(request: web.Request):
 	async with client.get(f"https://{APPVIEW_SERVER}/xrpc/com.atproto.identity.resolveHandle", params=request.query) as r:
 		return web.json_response(await r.json(), status=r.status)
