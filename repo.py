@@ -222,6 +222,14 @@ class Repo:
 		blocks = self.cur.execute("SELECT block_cid, block_value FROM blocks")
 		return carfile.serialise([commit], blocks)
 
+	def get_record(self, collection, rkey) -> Tuple[str, CID, bytes]:
+		path = f"{collection}/{rkey}"
+		result = self.cur.execute("SELECT block_cid, block_value FROM blocks INNER JOIN records ON block_cid=record_cid WHERE record_key=?", (path,)).fetchone()
+		if result is None: # TODO: probably raise exception here
+			return None
+		cid, value = result
+		uri = f"at://{self.did}/{path}"
+		return uri, CID.decode(cid), value
 
 if __name__ == "__main__":
 	repo = Repo("repo.db")

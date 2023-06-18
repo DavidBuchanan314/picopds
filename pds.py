@@ -11,6 +11,7 @@ import time
 from repo import Repo
 from multiformats import CID
 
+from record_serdes import record_to_json
 from config import DID_PLC, HANDLE, PASSWORD, JWT_ACCESS_SECRET, APPVIEW_SERVER
 
 logging.basicConfig(level=logging.DEBUG)
@@ -162,6 +163,19 @@ async def repo_create_record(request: web.Request):
 		"cid": cid.encode("base32")
 	})
 
+@authenticated
+async def repo_get_record(request: web.Request):
+	collection = request.query["collection"]
+	repo_did = request.query["repo"]
+	rkey = request.query["rkey"]
+	assert(repo_did == repo.did)
+	# TODO: return correct error on not found
+	uri, cid, value = repo.get_record(collection, rkey)
+	return web.json_response(record_to_json({
+		"uri": uri,
+		"cid": cid.encode("base32"),
+		"value": dag_cbor.decode(value)
+	}))
 
 @authenticated
 async def bsky_actor_get_preferences(request: web.Request):
@@ -304,6 +318,7 @@ async def main():
 		web.get ("/xrpc/com.atproto.sync.getCheckout", sync_get_checkout),
 		web.post("/xrpc/com.atproto.repo.createRecord", repo_create_record),
 		web.post("/xrpc/com.atproto.repo.putRecord", repo_create_record), # this should have its own impl at some point!
+		web.get ("/xrpc/com.atproto.repo.getRecord", repo_get_record)
 	])
 
 	cors = aiohttp_cors.setup(app, defaults={
