@@ -14,11 +14,12 @@ It's designed to be a single-user instance (i.e. it only hosts a single repo). T
 ### What doesn't work yet:
 
 - Deleting records (no post deletion, no unlikes, no unfollows!)
-- User settings do not persist between server restarts
-- Firehose cursoring
+- User settings do not persist between server restarts.
+- Firehose cursoring.
 - No Lexicon validation (the client is assumed to be well-behaved!)
+- A lot of error/unhappy-path handling.
 - Various security considerations (e.g. password hashing)
-- Many many many other things
+- Many many many other things...
 
 ### Usage:
 
