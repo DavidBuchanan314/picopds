@@ -53,12 +53,12 @@ class ATNode(MSTNode):
 		return [self.cid()]
 	
 	def get_all_blocks(self):
-		yield self.cid()
+		yield bytes(self.cid), self.serialised
 		for subtree in self.subtrees:
 			if subtree is None:
 				continue
 			yield from subtree.get_all_blocks()
-		yield from self.vals
+		#yield from self.vals
 
 	# since we're immutable, this can be cached
 	@cached_property
@@ -149,7 +149,16 @@ class Repo:
 			self.tree = self.tree.put(record_key, CID.decode(value_cid), set())
 		
 		# TODO: check that root cid matches that of the last commit in sqlite
+
+		#self.repair_mst() # TODO: comment this out...
 	
+	def repair_mst(self):
+		# fix missing MST nodes (should only be needed to fix the aftermath of bugs...)
+		self.con.executemany("""INSERT OR IGNORE INTO blocks (
+			block_cid, block_value
+		) VALUES (?, ?)""", list(self.tree.get_all_blocks()))
+		self.con.commit()
+
 	def create_record(self, collection, value, rkey=None) -> Tuple[str, CID]:
 		if rkey is None:
 			rkey = tid_now()

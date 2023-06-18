@@ -142,7 +142,7 @@ class MSTNode(ABC):
 				subtrees=(self,),
 				keys=(),
 				vals=()
-			)._put_recursive(key, val, key_height, tree_height + 1)
+			)._put_recursive(key, val, key_height, tree_height + 1, created)
 			created.add(new)
 			return new
 		
