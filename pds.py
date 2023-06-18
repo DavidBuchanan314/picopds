@@ -303,6 +303,7 @@ async def main():
 		web.get ("/xrpc/com.atproto.sync.getRepo", sync_get_repo),
 		web.get ("/xrpc/com.atproto.sync.getCheckout", sync_get_checkout),
 		web.post("/xrpc/com.atproto.repo.createRecord", repo_create_record),
+		web.post("/xrpc/com.atproto.repo.putRecord", repo_create_record), # this should have its own impl at some point!
 	])
 
 	cors = aiohttp_cors.setup(app, defaults={

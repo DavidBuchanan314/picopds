@@ -138,11 +138,13 @@ class MSTNode(ABC):
 		cls = self.__class__ # maybe this could be a class method???
 
 		if key_height > tree_height: # we need to grow the tree
-			return cls(
+			new = cls(
 				subtrees=(self,),
 				keys=(),
 				vals=()
 			)._put_recursive(key, val, key_height, tree_height + 1)
+			created.add(new)
+			return new
 		
 		if key_height < tree_height: # we need to look below
 			i = self._gte_index(key)
@@ -183,7 +185,7 @@ class MSTNode(ABC):
 		
 		new = cls(
 			subtrees = self.subtrees[:i] + \
-				cls._split_on_key(self.subtrees[i], key) + \
+				cls._split_on_key(self.subtrees[i], key, created) + \
 				self.subtrees[i + 1:],
 			keys=tuple_insert_at(self.keys, i, key),
 			vals=tuple_insert_at(self.vals, i, val),
@@ -192,7 +194,7 @@ class MSTNode(ABC):
 		return new
 	
 	@classmethod
-	def _split_on_key(cls, tree: Optional[Self], key: KTYPE) -> Tuple[Optional[Self], Optional[Self]]:
+	def _split_on_key(cls, tree: Optional[Self], key: KTYPE, created: set) -> Tuple[Optional[Self], Optional[Self]]:
 		if tree is None:
 			return None, None
 		i = tree._gte_index(key)
@@ -207,6 +209,8 @@ class MSTNode(ABC):
 			keys=tree.keys[i:],
 			vals=tree.vals[i:]
 		)._to_optional()
+		created.add(left)
+		created.add(right)
 		return left, right
 
 	def delete(self, key: KTYPE) -> Self:

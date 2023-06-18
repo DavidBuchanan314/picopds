@@ -205,6 +205,7 @@ class Repo:
 			block_cid, block_value
 		) VALUES (?, ?)""", db_block_inserts)
 
+		# technically we should only REPLACE if this is a putrecord
 		self.con.execute("INSERT OR REPLACE INTO records (record_key, record_cid) VALUES (?, ?)", (record_key, bytes(value_cid)))
 
 		self.con.execute("INSERT INTO commits (commit_seq, commit_cid) VALUES (?, ?)", (prev_commit_seq + 1, bytes(commit_cid)))
