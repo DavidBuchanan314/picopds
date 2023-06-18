@@ -168,14 +168,17 @@ async def repo_get_record(request: web.Request):
 	collection = request.query["collection"]
 	repo_did = request.query["repo"]
 	rkey = request.query["rkey"]
-	assert(repo_did == repo.did)
-	# TODO: return correct error on not found
-	uri, cid, value = repo.get_record(collection, rkey)
-	return web.json_response(record_to_json({
-		"uri": uri,
-		"cid": cid.encode("base32"),
-		"value": dag_cbor.decode(value)
-	}))
+	if repo_did == repo.did:
+		# TODO: return correct error on not found
+		uri, cid, value = repo.get_record(collection, rkey)
+		return web.json_response(record_to_json({
+			"uri": uri,
+			"cid": cid.encode("base32"),
+			"value": dag_cbor.decode(value)
+		}))
+	else:
+		async with client.get(f"https://{APPVIEW_SERVER}/xrpc/com.atproto.repo.getRecord", params=request.query, headers=APPVIEW_AUTH) as r:
+			return web.json_response(await r.json(), status=r.status)
 
 @authenticated
 async def firehose_inject(request: web.Request):
