@@ -1,0 +1,4 @@
+pyjwt[crypto]
+aiohttp_cors
+dag_cbor
+more_itertools
