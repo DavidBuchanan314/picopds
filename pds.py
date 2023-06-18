@@ -1,3 +1,4 @@
+from cryptography.hazmat.primitives import serialization
 import asyncio
 import logging
 import aiohttp_cors
@@ -7,18 +8,23 @@ from aiohttp import web
 import jwt_monkeypatch as jwt
 from typing import Set
 import time
+from repo import Repo
+from multiformats import CID
 
 from config import DID_PLC, HANDLE, PASSWORD, JWT_ACCESS_SECRET, APPVIEW_SERVER
 
 logging.basicConfig(level=logging.DEBUG)
 
-privkey = open("privkey.pem", "rb").read()
+privkey_bytes = open("privkey.pem", "rb").read()
+privkey_obj = serialization.load_pem_private_key(privkey_bytes, password=None)
+
+# TODO: this needs periodic refreshing!
 APPVIEW_AUTH = {
 	"Authorization": "Bearer " + jwt.encode({
 		"iss": DID_PLC,
 		"aud": f"did:web:{APPVIEW_SERVER}",
 		"exp": int(time.time()) + 60*60*24 # 24h
-	}, privkey, algorithm="ES256K")
+	}, privkey_bytes, algorithm="ES256K")
 }
 
 
@@ -59,6 +65,7 @@ def authenticated(handler):
 preferences = {"preferences": []}
 firehose_queues: Set[asyncio.Queue] = set()
 firehose_queues_lock = asyncio.Lock()
+repo = Repo(DID_PLC, "repo.db", privkey_obj)
 
 async def firehose_broadcast(msg: bytes):
 	async with firehose_queues_lock:  # make sure it can't change while we iterate
@@ -126,6 +133,33 @@ async def sync_subscribe_repos(request: web.Request):
 	finally:
 		async with firehose_queues_lock:
 			firehose_queues.remove(queue)
+
+async def sync_get_repo(request: web.Request):
+	did = request.query["did"]
+	assert(did == repo.did)
+	return web.Response(body=repo.get_checkout(), content_type="application/vnd.ipld.car")
+
+async def sync_get_checkout(request: web.Request):
+	did = request.query["did"]
+	assert(did == repo.did)
+	commit = request.query.get("commit")
+	if commit is not None:
+		commit = CID.decode(commit)
+	return web.Response(body=repo.get_checkout(commit), content_type="application/vnd.ipld.car")
+
+@authenticated
+async def repo_create_record(request: web.Request):
+	req = await request.json()
+	assert(req["repo"] == DID_PLC)
+	collection = req["collection"]
+	rkey = req.get("rkey")
+	record = req["record"]
+	uri, cid, firehose_msg = repo.create_record(collection, record, rkey)
+	await firehose_broadcast(firehose_msg)
+	return web.json_response({
+		"uri": uri,
+		"cid": cid.encode("base32")
+	})
 
 
 @authenticated
@@ -265,6 +299,9 @@ async def main():
 		web.post("/xrpc/com.atproto.server.createSession", server_create_session),
 		web.get ("/xrpc/com.atproto.server.getSession", server_get_session),
 		web.get ("/xrpc/com.atproto.sync.subscribeRepos", sync_subscribe_repos),
+		web.get ("/xrpc/com.atproto.sync.getRepo", sync_get_repo),
+		web.get ("/xrpc/com.atproto.sync.getCheckout", sync_get_checkout),
+		web.post("/xrpc/com.atproto.repo.createRecord", repo_create_record),
 	])
 
 	cors = aiohttp_cors.setup(app, defaults={
