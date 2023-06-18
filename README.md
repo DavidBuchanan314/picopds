@@ -8,7 +8,8 @@ It's designed to be a single-user instance (i.e. it only hosts a single repo). T
 - Creating a new DID and publishing it.
 - Creating new records (making posts).
 - Editing records (e.g. editing bio).
-- Federated firehose
+- Federated firehose.
+- AppView proxying for most endpoints (still missing some)
 
 ### What doesn't work yet:
 
