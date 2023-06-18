@@ -6,7 +6,7 @@ It's designed to be a single-user instance (i.e. it only hosts a single repo). T
 ### What works:
 
 - Creating a new DID and publishing it.
-- Creating new records (making posts).
+- Creating new records (making posts, liking, replying).
 - Editing records (e.g. editing bio).
 - Federated firehose.
 - AppView proxying for most endpoints (still missing some)
@@ -14,6 +14,7 @@ It's designed to be a single-user instance (i.e. it only hosts a single repo). T
 ### What doesn't work yet:
 
 - Deleting records (no post deletion, no unlikes, no unfollows!)
+- Blobs (images)
 - User settings do not persist between server restarts.
 - Firehose cursoring.
 - No Lexicon validation (the client is assumed to be well-behaved!)

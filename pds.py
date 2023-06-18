@@ -178,6 +178,12 @@ async def repo_get_record(request: web.Request):
 	}))
 
 @authenticated
+async def firehose_inject(request: web.Request):
+	data = await request.read()
+	await firehose_broadcast(data)
+	return web.Response()
+
+@authenticated
 async def bsky_actor_get_preferences(request: web.Request):
 	return web.json_response(preferences)
 
@@ -318,7 +324,9 @@ async def main():
 		web.get ("/xrpc/com.atproto.sync.getCheckout", sync_get_checkout),
 		web.post("/xrpc/com.atproto.repo.createRecord", repo_create_record),
 		web.post("/xrpc/com.atproto.repo.putRecord", repo_create_record), # this should have its own impl at some point!
-		web.get ("/xrpc/com.atproto.repo.getRecord", repo_get_record)
+		web.get ("/xrpc/com.atproto.repo.getRecord", repo_get_record),
+
+		web.post("/xrpc/unspecced.evil.firehoseInject", firehose_inject),
 	])
 
 	cors = aiohttp_cors.setup(app, defaults={

@@ -198,7 +198,7 @@ class MSTNode(ABC):
 		if tree is None:
 			return None, None
 		i = tree._gte_index(key)
-		lsub, rsub = cls._split_on_key(tree.subtrees[i], key)
+		lsub, rsub = cls._split_on_key(tree.subtrees[i], key, created)
 		left = cls(
 			subtrees=tree.subtrees[:i] + (lsub,),
 			keys=tree.keys[:i],
