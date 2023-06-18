@@ -16,6 +16,7 @@ It's designed to be a single-user instance (i.e. it only hosts a single repo). T
 - Deleting records (no post deletion, no unlikes, no unfollows!)
 - User settings do not persist between server restarts
 - Firehose cursoring
+- No Lexicon validation (the client is assumed to be well-behaved!)
 - Various security considerations (e.g. password hashing)
 - Many many many other things
 
