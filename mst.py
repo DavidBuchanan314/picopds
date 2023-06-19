@@ -293,11 +293,11 @@ class MST:
 		return self.root.height()
 	
 	def __setitem__(self, key: KTYPE, val: VTYPE) -> None:
-		self.root = self.root.put(key, val)
+		self.root = self.root.put(key, val, set())
 	
 	def __delitem__(self, key: KTYPE) -> None:
 		prev_root = self.root
-		self.root = self.root.delete(key)
+		self.root = self.root.delete(key, set())
 		if self.root == prev_root: # if nothing changed it's because the key didn't exist in the first place
 			raise KeyError(key)
 	
