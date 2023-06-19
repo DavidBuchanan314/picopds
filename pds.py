@@ -74,9 +74,7 @@ async def firehose_broadcast(msg: bytes):
 			await queue.put(msg)
 
 async def hello(request: web.Request):
-	event = dag_cbor.encode({"t": "#info", "op": 1}) + dag_cbor.encode({"name": "retr0.id/info", "message": "Hello, world!"})
-	await firehose_broadcast(event)
-	return web.Response(text="Hello, world!")
+	return web.Response(text="Hello! This is an ATProto PDS instance, running on https://github.com/DavidBuchanan314/picopds")
 
 
 async def server_describe_server(request: web.Request):
