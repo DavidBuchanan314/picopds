@@ -8,6 +8,7 @@ import hashlib
 import base64
 import requests
 import json
+from signing import raw_sign
 
 from config import HANDLE, PDS_SERVER, PLC_SERVER
 
@@ -58,14 +59,7 @@ genesis = {
 }
 
 genesis_bytes = dag_cbor.encode(genesis)
-r, s = decode_dss_signature(privkey.sign(genesis_bytes, ec.ECDSA(hashes.SHA256())))
-
-# apply low-s malleability mitigation
-SECP256K1_N = 0xFFFFFFFF_FFFFFFFF_FFFFFFFF_FFFFFFFE_BAAEDCE6_AF48A03B_BFD25E8C_D0364141
-if s > SECP256K1_N // 2: # XXX there might be an off-by-one here lol
-	s = SECP256K1_N - s
-
-signature = base64.urlsafe_b64encode(r.to_bytes(32, "big") + s.to_bytes(32, "big")).decode().strip("=")
+signature = base64.urlsafe_b64encode(raw_sign(privkey, genesis_bytes)).decode().strip("=")
 signed_genesis = genesis | {"sig": signature}
 signed_genesis_bytes = dag_cbor.encode(signed_genesis)
 
