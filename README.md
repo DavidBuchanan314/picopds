@@ -15,12 +15,19 @@ It's designed to be a single-user instance (i.e. it only hosts a single repo). T
 
 - Deleting records (no post deletion, no unlikes, no unfollows!)
 - Blobs (images)
-- User settings do not persist between server restarts.
 - Firehose cursoring.
 - No Lexicon validation (the client is assumed to be well-behaved!)
 - A lot of error/unhappy-path handling.
 - Various security considerations (e.g. password hashing)
 - Many many many other things...
+
+### TODO:
+
+ - Fix aforementioned non-working things
+ - Figure out how to garbage-collect MST blocks
+ - Don't hold full MST state in memory, load blocks from DB on-demand
+ - Tests
+ - Docs
 
 ### Usage:
 
