@@ -11,7 +11,7 @@ import time
 from repo import Repo
 from multiformats import CID
 
-from record_serdes import record_to_json
+from record_serdes import record_to_json, json_to_record
 from config import DID_PLC, HANDLE, PASSWORD, JWT_ACCESS_SECRET, APPVIEW_SERVER
 
 logging.basicConfig(level=logging.DEBUG)
@@ -63,7 +63,6 @@ def authenticated(handler):
 		return handler(request)
 	return authentication_handler
 
-preferences = {"preferences": []}
 firehose_queues: Set[asyncio.Queue] = set()
 firehose_queues_lock = asyncio.Lock()
 repo = Repo(DID_PLC, "repo.db", privkey_obj)
@@ -186,16 +185,14 @@ async def firehose_inject(request: web.Request):
 
 @authenticated
 async def bsky_actor_get_preferences(request: web.Request):
-	return web.json_response(preferences)
+	return web.json_response(record_to_json(dag_cbor.decode(repo.get_preferences())))
 
 @authenticated
 async def bsky_actor_put_preferences(request: web.Request):
-	global preferences
-
-	json = await request.json()
-	print(json)
-	preferences = json
-	return web.json_response({})
+	preference_json = await request.json()
+	preference_blob = dag_cbor.encode(json_to_record(preference_json))
+	repo.put_preferences(preference_blob)
+	return web.Response()
 
 @authenticated
 async def bsky_actor_search_actors_typeahead(request: web.Request):

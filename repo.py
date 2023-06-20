@@ -122,6 +122,12 @@ class Repo:
 			commit_cid BLOB NOT NULL
 		)""")
 
+		self.cur.execute("""CREATE TABLE IF NOT EXISTS preferences (
+			preferences_did TEXT PRIMARY KEY NOT NULL,
+			preferences_blob BLOB NOT NULL
+		)""")
+		self.cur.execute("INSERT OR IGNORE INTO preferences (preferences_did, preferences_blob) VALUES (?, ?)", (self.did, dag_cbor.encode({"preferences": []})))
+
 		self.tree = ATNode.empty_root()
 
 		# make an empty first commit, if it doesn't already exist
@@ -239,6 +245,14 @@ class Repo:
 		cid, value = result
 		uri = f"at://{self.did}/{path}"
 		return uri, CID.decode(cid), value
+	
+	def get_preferences(self):
+		return self.cur.execute("SELECT preferences_blob FROM preferences WHERE preferences_did=?", (self.did,)).fetchone()[0]
+
+	def put_preferences(self, blob):
+		self.cur.execute("INSERT OR REPLACE INTO preferences (preferences_did, preferences_blob) VALUES (?, ?)", (self.did, blob))
+		self.con.commit()
+
 
 if __name__ == "__main__":
 	repo = Repo("repo.db")
