@@ -7,6 +7,7 @@ It's designed to be a single-user instance (i.e. it only hosts a single repo). T
 
 - Creating a new DID and publishing it.
 - Creating new records (making posts, liking, replying).
+- Attaching blobs (e.g. images)
 - Editing records (e.g. editing bio).
 - Federated firehose.
 - AppView proxying for most endpoints (still missing some)
@@ -14,7 +15,6 @@ It's designed to be a single-user instance (i.e. it only hosts a single repo). T
 ### What doesn't work yet:
 
 - Deleting records (no post deletion, no unlikes, no unfollows!)
-- Blobs (images)
 - Firehose cursoring.
 - No Lexicon validation (the client is assumed to be well-behaved!)
 - A lot of error/unhappy-path handling.
@@ -27,6 +27,7 @@ It's designed to be a single-user instance (i.e. it only hosts a single repo). T
  - Fix aforementioned non-working things
  - Figure out how to garbage-collect MST blocks
  - Don't hold full MST state in memory, load blocks from DB on-demand
+ - Put blobs larger than some threshold in the filesystem, not in sqlite
  - Tests
  - Docs
 

@@ -148,7 +148,7 @@ async def sync_get_checkout(request: web.Request):
 
 @authenticated
 async def repo_create_record(request: web.Request):
-	req = await request.json()
+	req = json_to_record(await request.json())
 	assert(req["repo"] == DID_PLC)
 	collection = req["collection"]
 	rkey = req.get("rkey")
@@ -176,6 +176,31 @@ async def repo_get_record(request: web.Request):
 	else:
 		async with client.get(f"https://{APPVIEW_SERVER}/xrpc/com.atproto.repo.getRecord", params=request.query, headers=APPVIEW_AUTH) as r:
 			return web.json_response(await r.json(), status=r.status)
+
+@authenticated
+async def repo_upload_blob(request: web.Request):
+	mime = request.headers["content-type"]
+	blob = await request.read() # XXX: TODO: ensure maximum blob size!!! (we could get OOMed by big blobs here)
+	ref = repo.put_blob(blob)
+
+	# XXX: deliberate and opinionated misinterpretation of atproto spec
+	# We will never sniff mimes, and reflect back whatever the client claimed it to be.
+	# Thus, the same blob bytes can be referenced with multiple mimes
+	ref["mimeType"] = mime  # I can be whatever you want me to be
+
+	return web.json_response(record_to_json({"blob": ref}))
+
+
+async def sync_get_blob(request: web.Request):
+	did = request.query["did"]
+	assert(did == repo.did)
+	cid = CID.decode(request.query["cid"])
+
+	# XXX: deliberate and opinionated misinterpretation of atproto spec
+	# We do not consider any single mime to be directly assocated with a blob
+	mime = "application/octet-stream"
+
+	return web.Response(body=repo.get_blob(cid), content_type=mime)
 
 @authenticated
 async def firehose_inject(request: web.Request):
@@ -320,9 +345,12 @@ async def main():
 		web.get ("/xrpc/com.atproto.sync.subscribeRepos", sync_subscribe_repos),
 		web.get ("/xrpc/com.atproto.sync.getRepo", sync_get_repo),
 		web.get ("/xrpc/com.atproto.sync.getCheckout", sync_get_checkout),
+		web.get ("/xrpc/com.atproto.sync.getBlob", sync_get_blob),
 		web.post("/xrpc/com.atproto.repo.createRecord", repo_create_record),
 		web.post("/xrpc/com.atproto.repo.putRecord", repo_create_record), # this should have its own impl at some point!
 		web.get ("/xrpc/com.atproto.repo.getRecord", repo_get_record),
+		web.post("/xrpc/com.atproto.repo.uploadBlob", repo_upload_blob),
+		
 
 		web.post("/xrpc/unspecced.evil.firehoseInject", firehose_inject),
 	])

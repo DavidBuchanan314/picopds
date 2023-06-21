@@ -15,6 +15,7 @@ import datetime
 from mst import MSTNode
 from signing import raw_sign
 import carfile
+from record_serdes import enumerate_record_cids
 
 B32_CHARSET = "234567abcdefghijklmnopqrstuvwxyz"
 
@@ -24,9 +25,9 @@ def tid_now():
 	tid_int = (nanos << 10) | clkid
 	return "".join(B32_CHARSET[(tid_int >> (60-(i * 5))) & 31] for i in range(13))
 
-def hash_to_cid(data: bytes) -> CID:
+def hash_to_cid(data: bytes, codec="dag-cbor") -> CID:
 	digest = multihash.digest(data, "sha2-256")
-	return CID("base58btc", 1, "dag-cbor", digest)
+	return CID("base58btc", 1, codec, digest)
 
 class ATNode(MSTNode):
 	@staticmethod
@@ -128,6 +129,12 @@ class Repo:
 		)""")
 		self.cur.execute("INSERT OR IGNORE INTO preferences (preferences_did, preferences_blob) VALUES (?, ?)", (self.did, dag_cbor.encode({"preferences": []})))
 
+		self.cur.execute("""CREATE TABLE IF NOT EXISTS blobs (
+			blob_cid BLOB PRIMARY KEY NOT NULL,
+			blob_data BLOB NOT NULL,
+			blob_refcount INTEGER NOT NULL
+		)""")
+
 		self.tree = ATNode.empty_root()
 
 		# make an empty first commit, if it doesn't already exist
@@ -171,6 +178,10 @@ class Repo:
 		
 		record_key = f"{collection}/{rkey}"
 
+		referenced_blobs = set(enumerate_record_cids(value))
+		for blob in referenced_blobs:
+			self.incref_blob(blob)
+
 		value_bytes = dag_cbor.encode(value)
 		value_cid = hash_to_cid(value_bytes)
 		db_block_inserts = [(bytes(value_cid), value_bytes)]
@@ -209,7 +220,7 @@ class Repo:
 			"prev": prev_commit_cid, # TODO: is this correct?
 			"repo": self.did,
 			"time": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
-			"blobs": [],
+			"blobs": list(referenced_blobs),
 			"blocks": carfile.serialise([commit_cid], db_block_inserts),
 			"commit": commit_cid,
 			"rebase": False,
@@ -252,6 +263,27 @@ class Repo:
 	def put_preferences(self, blob):
 		self.cur.execute("INSERT OR REPLACE INTO preferences (preferences_did, preferences_blob) VALUES (?, ?)", (self.did, blob))
 		self.con.commit()
+	
+	def get_blob(self, cid: CID):
+		return self.cur.execute("SELECT blob_data FROM blobs WHERE blob_cid=? AND blob_refcount>0", (bytes(cid),)).fetchone()[0]
+
+	def put_blob(self, blob):
+		cid = hash_to_cid(blob, "raw")
+		self.cur.execute("INSERT OR IGNORE INTO blobs (blob_cid, blob_data, blob_refcount) VALUES (?, ?, 0)", (bytes(cid), blob))
+		self.con.commit()
+		return {
+			'$type': 'blob',
+			'ref': cid,
+			#'mimeType': 'image/jpeg', #XXX
+			'size': len(blob)
+		}
+	
+	def incref_blob(self, cid: CID):
+		# this will raise some exception if the blob does not exist
+		self.cur.execute("UPDATE blobs SET blob_refcount=(blob_refcount+1) WHERE blob_cid=?", (bytes(cid),))
+		#self.con.commit() # XXX: caller is expected to commit() as part of a larger transaction!
+	
+	# TODO: support for decref'ing blobs on post deletion! (delete blob if refcount becomes 0)
 
 
 if __name__ == "__main__":
