@@ -31,6 +31,12 @@ It's designed to be a single-user instance (i.e. it only hosts a single repo). T
  - Tests
  - Docs
 
+### Planned Extended Features:
+
+ - Design and implement a protocol for client-signed commits (so the server can avoid holding signing keys, and enabling the use of user-local HSMs)
+
+ - A read-only web interface for external sharing of posts.
+
 ### Usage:
 
 1. Copy `config.py.example` to `config.py`, and edit it.

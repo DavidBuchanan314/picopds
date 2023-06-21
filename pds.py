@@ -10,6 +10,7 @@ from typing import Set
 import time
 from repo import Repo
 from multiformats import CID
+from cachetools import cached, TTLCache
 
 from record_serdes import record_to_json, json_to_record
 from config import DID_PLC, HANDLE, PASSWORD, JWT_ACCESS_SECRET, APPVIEW_SERVER
@@ -19,14 +20,15 @@ logging.basicConfig(level=logging.DEBUG)
 privkey_bytes = open("privkey.pem", "rb").read()
 privkey_obj = serialization.load_pem_private_key(privkey_bytes, password=None)
 
-# TODO: this needs periodic refreshing!
-APPVIEW_AUTH = {
-	"Authorization": "Bearer " + jwt.encode({
-		"iss": DID_PLC,
-		"aud": f"did:web:{APPVIEW_SERVER}",
-		"exp": int(time.time()) + 60*60*24 # 24h
-	}, privkey_bytes, algorithm="ES256K")
-}
+@cached(cache=TTLCache(maxsize=1, ttl=60*60)) # 1h TTL
+def get_appview_auth():
+	return {
+		"Authorization": "Bearer " + jwt.encode({
+			"iss": DID_PLC,
+			"aud": f"did:web:{APPVIEW_SERVER}",
+			"exp": int(time.time()) + 60*60*24 # 24h
+		}, privkey_bytes, algorithm="ES256K")
+	}
 
 
 def jwt_access_subject(token: str) -> str:
@@ -174,7 +176,7 @@ async def repo_get_record(request: web.Request):
 			"value": dag_cbor.decode(value)
 		}))
 	else:
-		async with client.get(f"https://{APPVIEW_SERVER}/xrpc/com.atproto.repo.getRecord", params=request.query, headers=APPVIEW_AUTH) as r:
+		async with client.get(f"https://{APPVIEW_SERVER}/xrpc/com.atproto.repo.getRecord", params=request.query, headers=get_appview_auth()) as r:
 			return web.json_response(await r.json(), status=r.status)
 
 @authenticated
@@ -221,89 +223,95 @@ async def bsky_actor_put_preferences(request: web.Request):
 
 @authenticated
 async def bsky_actor_search_actors_typeahead(request: web.Request):
-	async with client.get(f"https://{APPVIEW_SERVER}/xrpc/app.bsky.actor.searchActorsTypeahead", params=request.query, headers=APPVIEW_AUTH) as r:
+	async with client.get(f"https://{APPVIEW_SERVER}/xrpc/app.bsky.actor.searchActorsTypeahead", params=request.query, headers=get_appview_auth()) as r:
 		return web.json_response(await r.json(), status=r.status)
 
 @authenticated
 async def bsky_graph_get_lists(request: web.Request):
-	async with client.get(f"https://{APPVIEW_SERVER}/xrpc/app.bsky.graph.getLists", params=request.query, headers=APPVIEW_AUTH) as r:
+	async with client.get(f"https://{APPVIEW_SERVER}/xrpc/app.bsky.graph.getLists", params=request.query, headers=get_appview_auth()) as r:
 		return web.json_response(await r.json(), status=r.status)
 
 @authenticated
 async def bsky_graph_get_follows(request: web.Request):
-	async with client.get(f"https://{APPVIEW_SERVER}/xrpc/app.bsky.graph.getFollows", params=request.query, headers=APPVIEW_AUTH) as r:
+	async with client.get(f"https://{APPVIEW_SERVER}/xrpc/app.bsky.graph.getFollows", params=request.query, headers=get_appview_auth()) as r:
 		return web.json_response(await r.json(), status=r.status)
 
 @authenticated
 async def bsky_graph_get_followers(request: web.Request):
-	async with client.get(f"https://{APPVIEW_SERVER}/xrpc/app.bsky.graph.getFollowers", params=request.query, headers=APPVIEW_AUTH) as r:
+	async with client.get(f"https://{APPVIEW_SERVER}/xrpc/app.bsky.graph.getFollowers", params=request.query, headers=get_appview_auth()) as r:
 		return web.json_response(await r.json(), status=r.status)
 
 @authenticated
+async def bsky_graph_mute_actor(request: web.Request):
+	body = await request.json()
+	async with client.post(f"https://{APPVIEW_SERVER}/xrpc/app.bsky.graph.muteActor", params=request.query, json=body, headers=get_appview_auth()) as r:
+		return web.Response(body=await r.read(), status=r.status)
+
+@authenticated
 async def bsky_actor_get_profile(request: web.Request):
-	async with client.get(f"https://{APPVIEW_SERVER}/xrpc/app.bsky.actor.getProfile", params=request.query, headers=APPVIEW_AUTH) as r:
+	async with client.get(f"https://{APPVIEW_SERVER}/xrpc/app.bsky.actor.getProfile", params=request.query, headers=get_appview_auth()) as r:
 		return web.json_response(await r.json(), status=r.status)
 
 @authenticated
 async def bsky_feed_get_timeline(request: web.Request):
-	async with client.get(f"https://{APPVIEW_SERVER}/xrpc/app.bsky.feed.getTimeline", params=request.query, headers=APPVIEW_AUTH) as r:
+	async with client.get(f"https://{APPVIEW_SERVER}/xrpc/app.bsky.feed.getTimeline", params=request.query, headers=get_appview_auth()) as r:
 		return web.json_response(await r.json(), status=r.status)
 
 @authenticated
 async def bsky_feed_get_author_feed(request: web.Request):
-	async with client.get(f"https://{APPVIEW_SERVER}/xrpc/app.bsky.feed.getAuthorFeed", params=request.query, headers=APPVIEW_AUTH) as r:
+	async with client.get(f"https://{APPVIEW_SERVER}/xrpc/app.bsky.feed.getAuthorFeed", params=request.query, headers=get_appview_auth()) as r:
 		return web.json_response(await r.json(), status=r.status)
 
 @authenticated
 async def bsky_feed_get_actor_feeds(request: web.Request):
-	async with client.get(f"https://{APPVIEW_SERVER}/xrpc/app.bsky.feed.getActorFeeds", params=request.query, headers=APPVIEW_AUTH) as r:
+	async with client.get(f"https://{APPVIEW_SERVER}/xrpc/app.bsky.feed.getActorFeeds", params=request.query, headers=get_appview_auth()) as r:
 		return web.json_response(await r.json(), status=r.status)
 
 
 @authenticated
 async def bsky_notification_list_notifications(request: web.Request):
-	async with client.get(f"https://{APPVIEW_SERVER}/xrpc/app.bsky.notification.listNotifications", params=request.query, headers=APPVIEW_AUTH) as r:
+	async with client.get(f"https://{APPVIEW_SERVER}/xrpc/app.bsky.notification.listNotifications", params=request.query, headers=get_appview_auth()) as r:
 		return web.json_response(await r.json(), status=r.status)
 
 @authenticated
 async def bsky_notification_update_seen(request: web.Request):
 	body = await request.json()
-	async with client.post(f"https://{APPVIEW_SERVER}/xrpc/app.bsky.notification.updateSeen", params=request.query, json=body, headers=APPVIEW_AUTH) as r:
+	async with client.post(f"https://{APPVIEW_SERVER}/xrpc/app.bsky.notification.updateSeen", params=request.query, json=body, headers=get_appview_auth()) as r:
 		return web.Response(body=await r.read(), status=r.status)
 
 @authenticated
 async def bsky_get_popular_feeds(request: web.Request):
-	async with client.get(f"https://{APPVIEW_SERVER}/xrpc/app.bsky.unspecced.getPopularFeedGenerators", params=request.query, headers=APPVIEW_AUTH) as r:
+	async with client.get(f"https://{APPVIEW_SERVER}/xrpc/app.bsky.unspecced.getPopularFeedGenerators", params=request.query, headers=get_appview_auth()) as r:
 		return web.json_response(await r.json(), status=r.status)
 
 @authenticated
 async def bsky_feed_get_feed_generator(request: web.Request):
-	async with client.get(f"https://{APPVIEW_SERVER}/xrpc/app.bsky.feed.getFeedGenerator", params=request.query, headers=APPVIEW_AUTH) as r:
+	async with client.get(f"https://{APPVIEW_SERVER}/xrpc/app.bsky.feed.getFeedGenerator", params=request.query, headers=get_appview_auth()) as r:
 		return web.json_response(await r.json(), status=r.status)
 
 @authenticated
 async def bsky_feed_get_feed_generators(request: web.Request):
-	async with client.get(f"https://{APPVIEW_SERVER}/xrpc/app.bsky.feed.getFeedGenerators", params=request.query, headers=APPVIEW_AUTH) as r:
+	async with client.get(f"https://{APPVIEW_SERVER}/xrpc/app.bsky.feed.getFeedGenerators", params=request.query, headers=get_appview_auth()) as r:
 		return web.json_response(await r.json(), status=r.status)
 
 @authenticated
 async def bsky_feed_get_post_thread(request: web.Request):
-	async with client.get(f"https://{APPVIEW_SERVER}/xrpc/app.bsky.feed.getPostThread", params=request.query, headers=APPVIEW_AUTH) as r:
+	async with client.get(f"https://{APPVIEW_SERVER}/xrpc/app.bsky.feed.getPostThread", params=request.query, headers=get_appview_auth()) as r:
 		return web.json_response(await r.json(), status=r.status)
 
 @authenticated
 async def bsky_feed_get_posts(request: web.Request):
-	async with client.get(f"https://{APPVIEW_SERVER}/xrpc/app.bsky.feed.getPosts", params=request.query, headers=APPVIEW_AUTH) as r:
+	async with client.get(f"https://{APPVIEW_SERVER}/xrpc/app.bsky.feed.getPosts", params=request.query, headers=get_appview_auth()) as r:
 		return web.json_response(await r.json(), status=r.status)
 
 @authenticated
 async def bsky_feed_get_likes(request: web.Request):
-	async with client.get(f"https://{APPVIEW_SERVER}/xrpc/app.bsky.feed.getLikes", params=request.query, headers=APPVIEW_AUTH) as r:
+	async with client.get(f"https://{APPVIEW_SERVER}/xrpc/app.bsky.feed.getLikes", params=request.query, headers=get_appview_auth()) as r:
 		return web.json_response(await r.json(), status=r.status)
 
 @authenticated
 async def bsky_feed_get_feed(request: web.Request):
-	async with client.get(f"https://{APPVIEW_SERVER}/xrpc/app.bsky.feed.getFeed", params=request.query, headers=APPVIEW_AUTH) as r:
+	async with client.get(f"https://{APPVIEW_SERVER}/xrpc/app.bsky.feed.getFeed", params=request.query, headers=get_appview_auth()) as r:
 		return web.json_response(await r.json(), status=r.status)
 
 async def main():
@@ -326,6 +334,7 @@ async def main():
 		web.get ("/xrpc/app.bsky.graph.getLists", bsky_graph_get_lists),
 		web.get ("/xrpc/app.bsky.graph.getFollows", bsky_graph_get_follows),
 		web.get ("/xrpc/app.bsky.graph.getFollowers", bsky_graph_get_followers),
+		web.post("/xrpc/app.bsky.graph.muteActor", bsky_graph_mute_actor),
 
 		web.get ("/xrpc/app.bsky.feed.getTimeline", bsky_feed_get_timeline),
 		web.get ("/xrpc/app.bsky.feed.getAuthorFeed", bsky_feed_get_author_feed),
