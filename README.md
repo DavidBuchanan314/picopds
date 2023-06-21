@@ -18,6 +18,7 @@ It's designed to be a single-user instance (i.e. it only hosts a single repo). T
 - Firehose cursoring.
 - No Lexicon validation (the client is assumed to be well-behaved!)
 - A lot of error/unhappy-path handling.
+- JWT refresh tokens
 - Various security considerations (e.g. password hashing)
 - Many many many other things...
 
