@@ -123,7 +123,7 @@ async def sync_subscribe_repos(request: web.Request):
 	async with firehose_queues_lock:
 		firehose_queues.add(queue)
 
-	print("NEW FIREHOSE CLIENT", request.remote, request.forwarded)
+	print("NEW FIREHOSE CLIENT", request.remote, request.headers.get("x-forwarded-for"))
 
 	try:
 		while True:
@@ -375,7 +375,8 @@ async def main():
 	for route in app.router.routes():
 		cors.add(route)
 	
-	runner = web.AppRunner(app)
+	LOG_FMT = '%{X-Forwarded-For}i %t (%Tf) "%r" %s %b "%{Referer}i" "%{User-Agent}i"'
+	runner = web.AppRunner(app, access_log_format=LOG_FMT)
 	await runner.setup()
 	site = web.TCPSite(runner, host="localhost", port=31337)
 	await site.start()

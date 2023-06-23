@@ -6,11 +6,11 @@ It's designed to be a single-user instance (i.e. it only hosts a single repo). T
 ### What works:
 
 - Creating a new DID and publishing it.
-- Creating new records (making posts, liking, replying).
+- Creating new records (making posts, liking, replying, following, etc.)
 - Attaching blobs (e.g. images)
 - Editing records (e.g. editing bio).
 - Federated firehose.
-- AppView proxying for most endpoints (still missing some)
+- AppView proxying for most bsky endpoints (still missing some)
 
 ### What doesn't work yet:
 
@@ -45,8 +45,10 @@ It's designed to be a single-user instance (i.e. it only hosts a single repo). T
 
 3. Update `config.py` with the new DID value you just generated
 
-4. Run `pds.py`, and make the web server publicly accessible somewhere (I'm using an nginx reverse proxy)
+4. Create an `_atproto` TXT DNS record that points your handle domain name to your DID (or alternatively use the HTTP method) (more info [here](https://blueskyweb.xyz/blog/4-28-2023-domain-handle-tutorial)).
 
-5. Run `request_crawl.py` to inform the PDS that we exist.
+5. Run `pds.py`, and make the web server publicly accessible somewhere (I'm using an nginx reverse proxy). You might want to create a systemd unit, or docker container, or something like that (I wouldn't know, I suck at devops/sysadmin).
 
-6. Log in with a client (the official https://bsky.app works) and make a post, and the BGS should see it!
+6. Run `request_crawl.py` to inform the PDS that we exist. (Maybe I'll make this automatic at some point in the future).
+
+7. Log in with a client (the official https://bsky.app works) and make a post, and the BGS should see it!
