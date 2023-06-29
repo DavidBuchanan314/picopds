@@ -248,6 +248,12 @@ async def bsky_graph_mute_actor(request: web.Request):
 		return web.Response(body=await r.read(), status=r.status)
 
 @authenticated
+async def bsky_graph_unmute_actor(request: web.Request):
+	body = await request.json()
+	async with client.post(f"https://{APPVIEW_SERVER}/xrpc/app.bsky.graph.unmuteActor", params=request.query, json=body, headers=get_appview_auth()) as r:
+		return web.Response(body=await r.read(), status=r.status)
+
+@authenticated
 async def bsky_actor_get_profile(request: web.Request):
 	async with client.get(f"https://{APPVIEW_SERVER}/xrpc/app.bsky.actor.getProfile", params=request.query, headers=get_appview_auth()) as r:
 		return web.json_response(await r.json(), status=r.status)
@@ -335,6 +341,7 @@ async def main():
 		web.get ("/xrpc/app.bsky.graph.getFollows", bsky_graph_get_follows),
 		web.get ("/xrpc/app.bsky.graph.getFollowers", bsky_graph_get_followers),
 		web.post("/xrpc/app.bsky.graph.muteActor", bsky_graph_mute_actor),
+		web.post("/xrpc/app.bsky.graph.unmuteActor", bsky_graph_unmute_actor),
 
 		web.get ("/xrpc/app.bsky.feed.getTimeline", bsky_feed_get_timeline),
 		web.get ("/xrpc/app.bsky.feed.getAuthorFeed", bsky_feed_get_author_feed),
