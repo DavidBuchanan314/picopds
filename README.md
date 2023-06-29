@@ -7,6 +7,7 @@ It's designed to be a single-user instance (i.e. it only hosts a single repo). T
 
 - Creating a new DID and publishing it.
 - Creating new records (making posts, liking, replying, following, etc.)
+- Deleting records (post deletion, unlikes, unfollows, etc.)
 - Attaching blobs (e.g. images)
 - Editing records (e.g. editing bio).
 - Federated firehose.
@@ -14,10 +15,12 @@ It's designed to be a single-user instance (i.e. it only hosts a single repo). T
 
 ### What doesn't work yet:
 
-- Deleting records (no post deletion, no unlikes, no unfollows!)
+- Updating records works but is subtly incorrect (e.g. it will leak blob references)
+- swapCommit/swapRecord options for repo ops (they're silently ignored).
 - Firehose cursoring.
+- Handle firehose "too big" conditions.
 - No Lexicon validation (the client is assumed to be well-behaved!)
-- A lot of error/unhappy-path handling.
+- A lot of error/unhappy-path handling (and sometimes we signal errors in non-standard ways).
 - JWT refresh tokens
 - Various security considerations (e.g. password hashing)
 - Many many many other things...

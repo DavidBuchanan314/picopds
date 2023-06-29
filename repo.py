@@ -310,7 +310,7 @@ class Repo:
 			"op": 1
 		}) + dag_cbor.encode({
 			"ops": [{
-				"cid": None,
+				"cid": None, # Should CID really be None? I think I'd prefer if it wasn't
 				"path": record_key,
 				"action": "delete"
 			}],
