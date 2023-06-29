@@ -11,6 +11,8 @@ import sqlite3
 import random
 import time
 import datetime
+from aiohttp import web
+
 
 from mst import MSTNode
 from signing import raw_sign
@@ -341,8 +343,8 @@ class Repo:
 	def get_record(self, collection, rkey) -> Tuple[str, CID, bytes]:
 		path = f"{collection}/{rkey}"
 		result = self.cur.execute("SELECT block_cid, block_value FROM blocks INNER JOIN records ON block_cid=record_cid WHERE record_key=?", (path,)).fetchone()
-		if result is None: # TODO: probably raise exception here
-			return None
+		if result is None: # TODO: maybe raise our own exception class here?
+			raise web.HTTPNotFound(text="record not found")
 		cid, value = result
 		uri = f"at://{self.did}/{path}"
 		return uri, CID.decode(cid), value
