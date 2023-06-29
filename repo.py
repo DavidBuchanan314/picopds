@@ -373,10 +373,10 @@ class Repo:
 		self.cur.execute("UPDATE blobs SET blob_refcount=(blob_refcount+1) WHERE blob_cid=?", (bytes(cid),))
 		#self.con.commit() # XXX: caller is expected to commit() as part of a larger transaction!
 	
-	# TODO: support for decref'ing blobs on post deletion! (delete blob if refcount becomes 0)
 	def decref_blob(self, cid: CID):
-		pass
-
+		# TODO: make this a single, more clever, query?
+		self.cur.execute("UPDATE blobs SET blob_refcount=(blob_refcount-1) WHERE blob_cid=?", (bytes(cid),))
+		self.cur.execute("DELETE FROM blobs WHERE blob_cid=? AND blob_refcount<1", (bytes(cid),))
 
 if __name__ == "__main__":
 	repo = Repo("repo.db")
