@@ -64,7 +64,7 @@ class MSTNode(ABC):
 			return None
 		return self
 	
-	def _squash_top(self) -> Self:
+	def _squash_top(self, created: set) -> Self:
 		"""
 		strip empty nodes from the top of the tree
 		"""
@@ -72,7 +72,8 @@ class MSTNode(ABC):
 			return self
 		if self.subtrees[0] is None:
 			return self
-		return self.subtrees[0]._squash_top()
+		created.discard(self)
+		return self.subtrees[0]._squash_top(created)
 
 
 	# we're immutable, so this could be cached
@@ -216,7 +217,7 @@ class MSTNode(ABC):
 		return left, right
 
 	def delete(self, key: KTYPE, created: set) -> Self:
-		return self.__class__._from_optional(self._delete_recursive(key, self.key_height(key), self.height(), created))._squash_top()
+		return self.__class__._from_optional(self._delete_recursive(key, self.key_height(key), self.height(), created))._squash_top(created)
 
 	def _delete_recursive(self, key: KTYPE, key_height: int, tree_height: int, created: set) -> Optional[Self]:
 		cls = self.__class__

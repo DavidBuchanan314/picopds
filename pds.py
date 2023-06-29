@@ -163,6 +163,16 @@ async def repo_create_record(request: web.Request):
 	})
 
 @authenticated
+async def repo_delete_record(request: web.Request):
+	req = json_to_record(await request.json())
+	assert(req["repo"] == DID_PLC)
+	collection = req["collection"]
+	rkey = req["rkey"]
+	firehose_msg = repo.delete_record(collection, rkey)
+	await firehose_broadcast(firehose_msg)
+	return web.Response()
+
+@authenticated
 async def repo_get_record(request: web.Request):
 	collection = request.query["collection"]
 	repo_did = request.query["repo"]
@@ -364,6 +374,7 @@ async def main():
 		web.get ("/xrpc/com.atproto.sync.getBlob", sync_get_blob),
 		web.post("/xrpc/com.atproto.repo.createRecord", repo_create_record),
 		web.post("/xrpc/com.atproto.repo.putRecord", repo_create_record), # this should have its own impl at some point!
+		web.post("/xrpc/com.atproto.repo.deleteRecord", repo_delete_record),
 		web.get ("/xrpc/com.atproto.repo.getRecord", repo_get_record),
 		web.post("/xrpc/com.atproto.repo.uploadBlob", repo_upload_blob),
 		

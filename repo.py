@@ -172,7 +172,31 @@ class Repo:
 		) VALUES (?, ?)""", list(self.tree.get_all_blocks()))
 		self.con.commit()
 
-	def create_record(self, collection, value, rkey=None) -> Tuple[str, CID]:
+	def _build_firehose_blob_for_commit(self,
+		ops: list,
+		prev_commit_cid: CID,
+		commit_cid: CID,
+		referenced_blobs: list,
+		db_block_inserts
+	):
+		return dag_cbor.encode({
+			"t": "#commit",
+			"op": 1
+		}) + dag_cbor.encode({
+			"ops": ops,
+			"seq": int(time.time()*1000000), # TODO: don't use timestamp (requires persisting firehose history)
+			"prev": prev_commit_cid,
+			"repo": self.did,
+			"time": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+			"blobs": referenced_blobs,
+			"blocks": carfile.serialise([commit_cid], db_block_inserts),
+			"commit": commit_cid,
+			"rebase": False,
+			"tooBig": False # TODO: actually check lol
+		})
+
+	# XXX: we need a separate codepath for putrecord - we could leak blob refcounts, among other things
+	def create_record(self, collection, value, rkey=None) -> Tuple[str, CID, bytes]:
 		if rkey is None:
 			rkey = tid_now()
 		
@@ -248,6 +272,72 @@ class Repo:
 		blocks = self.cur.execute("SELECT block_cid, block_value FROM blocks")
 		return carfile.serialise([commit], blocks)
 
+	# returns a firehose event blob, on success
+	# XXX: lots of duplicated logic here, needs refactoring
+	def delete_record(self, collection, rkey) -> bytes:
+		record_key = f"{collection}/{rkey}"
+		existing_uri, existing_cid, existing_value = self.get_record(collection, rkey)
+		#XXX TODO: swapCommit etc. checks
+		existing_value_record = dag_cbor.decode(existing_value)
+		for blob in enumerate_record_cids(existing_value_record):
+			self.decref_blob(blob)
+		
+		db_block_inserts = []
+		new_blocks = set()
+		self.tree = self.tree.delete(record_key, new_blocks)
+		for block in new_blocks:
+			db_block_inserts.append((bytes(block.cid), block.serialised))
+
+
+		prev_commit_seq, prev_commit = self.cur.execute("SELECT commit_seq, commit_cid FROM commits ORDER BY commit_seq DESC LIMIT 1").fetchone()
+		prev_commit_cid = CID.decode(prev_commit)
+
+		commit = {
+			"version": 2,
+			"data": self.tree.cid,
+			"prev": prev_commit_cid,
+			"did": self.did
+		}
+		commit["sig"] = raw_sign(self.signing_key, dag_cbor.encode(commit))
+		commit_blob = dag_cbor.encode(commit)
+		commit_cid = hash_to_cid(commit_blob)
+		db_block_inserts.append((bytes(commit_cid), commit_blob))
+
+		#print(db_block_inserts)
+		#print(self.tree)
+		firehose_blob = dag_cbor.encode({
+			"t": "#commit",
+			"op": 1
+		}) + dag_cbor.encode({
+			"ops": [{
+				"cid": None,
+				"path": record_key,
+				"action": "delete"
+			}],
+			"seq": int(time.time()*1000000), # TODO: don't use timestamp (requires persisting firehose history)
+			"prev": prev_commit_cid, # TODO: is this correct?
+			"repo": self.did,
+			"time": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+			"blobs": [],
+			"blocks": carfile.serialise([commit_cid], db_block_inserts),
+			"commit": commit_cid,
+			"rebase": False,
+			"tooBig": False # TODO: actually check lol
+		})
+
+		self.con.executemany("""INSERT OR IGNORE INTO blocks (
+			block_cid, block_value
+		) VALUES (?, ?)""", db_block_inserts)
+
+		self.con.execute("DELETE FROM records WHERE record_key=?", (record_key,))
+
+		self.con.execute("INSERT INTO commits (commit_seq, commit_cid) VALUES (?, ?)", (prev_commit_seq + 1, bytes(commit_cid)))
+		self.con.commit()
+
+		return firehose_blob
+
+
+
 	def get_record(self, collection, rkey) -> Tuple[str, CID, bytes]:
 		path = f"{collection}/{rkey}"
 		result = self.cur.execute("SELECT block_cid, block_value FROM blocks INNER JOIN records ON block_cid=record_cid WHERE record_key=?", (path,)).fetchone()
@@ -284,6 +374,8 @@ class Repo:
 		#self.con.commit() # XXX: caller is expected to commit() as part of a larger transaction!
 	
 	# TODO: support for decref'ing blobs on post deletion! (delete blob if refcount becomes 0)
+	def decref_blob(self, cid: CID):
+		pass
 
 
 if __name__ == "__main__":
