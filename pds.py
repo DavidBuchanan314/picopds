@@ -55,7 +55,9 @@ def jwt_access_subject(token: str) -> str:
 # decorator
 def authenticated(handler):
 	def authentication_handler(request: web.Request):
-		auth = request.headers.getone("Authorization")
+		auth = request.headers.get("Authorization")
+		if auth is None:
+			raise web.HTTPUnauthorized(text="authentication required (this may be a bug, I'm erring on the side of caution for now)")
 		authtype, value = auth.split(" ")
 		if authtype != "Bearer":
 			raise web.HTTPUnauthorized(text="invalid auth type")
