@@ -3,6 +3,8 @@ A minimum viable atproto PDS for protocol experimentation purposes
 
 It's designed to be a single-user instance (i.e. it only hosts a single repo). This is a hardcoded constraint right now but I might make multiple repos technically possible at some point.
 
+## NOTE: This is experimental software, it may explode and eat all your data, etc. etc.
+
 ### What works:
 
 - Creating a new DID and publishing it.
