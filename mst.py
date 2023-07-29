@@ -121,12 +121,12 @@ class MSTNode(ABC):
 		if reverse:
 			raise Exception("todo")
 		start, end = self._gte_index(key_min), self._gte_index(key_max)
-		if self.subtrees[start] is not None:
-				yield from self.subtrees[start].get_range(key_min, key_max)
 		for i in range(start, end):
+			if self.subtrees[i] is not None:
+				yield from self.subtrees[i].get_range(key_min, key_max, reverse)
 			yield self.keys[i], self.vals[i]
-			if self.subtrees[i + 1] is not None:
-				yield from self.subtrees[i + 1].get_range(key_min, key_max)
+		if self.subtrees[end] is not None:
+			yield from self.subtrees[end].get_range(key_min, key_max, reverse)
 
 	def put(self, key: KTYPE, val: VTYPE, created: set) -> Self:
 		if self.subtrees == (None,): # special case for empty tree
