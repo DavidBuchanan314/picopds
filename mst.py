@@ -118,15 +118,21 @@ class MSTNode(ABC):
 	
 	def get_range(self, key_min: KTYPE, key_max: KTYPE, reverse: bool=False) -> Iterable[Tuple[KTYPE, VTYPE]]:
 		# currently inclusive, exclusive I thiiiink
-		if reverse:
-			raise Exception("todo")
 		start, end = self._gte_index(key_min), self._gte_index(key_max)
-		for i in range(start, end):
-			if self.subtrees[i] is not None:
-				yield from self.subtrees[i].get_range(key_min, key_max, reverse)
-			yield self.keys[i], self.vals[i]
-		if self.subtrees[end] is not None:
-			yield from self.subtrees[end].get_range(key_min, key_max, reverse)
+		if reverse:
+			if self.subtrees[end] is not None:
+				yield from self.subtrees[end].get_range(key_min, key_max, reverse)
+			for i in reversed(range(start, end)):
+				yield self.keys[i], self.vals[i]
+				if self.subtrees[i] is not None:
+					yield from self.subtrees[i].get_range(key_min, key_max, reverse)
+		else:
+			for i in range(start, end):
+				if self.subtrees[i] is not None:
+					yield from self.subtrees[i].get_range(key_min, key_max, reverse)
+				yield self.keys[i], self.vals[i]
+			if self.subtrees[end] is not None:
+				yield from self.subtrees[end].get_range(key_min, key_max, reverse)
 
 	def put(self, key: KTYPE, val: VTYPE, created: set) -> Self:
 		if self.subtrees == (None,): # special case for empty tree
@@ -464,6 +470,9 @@ if __name__ == "__main__":
 		('13', None),
 		('2', None)
 	])
+
+	# check that reversed result is the same but... reversed
+	assert(list(reversed(list(tree.get_range("02", "3")))) == list(tree.get_range("02", "3", reverse=True)))
 
 	# end value is exclusive, not inclusive
 	assert(list(tree.get_range("0", "13")) == [
