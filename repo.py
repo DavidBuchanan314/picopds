@@ -104,6 +104,10 @@ class Repo:
 		self.con = sqlite3.connect(db)
 		self.signing_key = signing_key
 		self.cur = self.con.cursor()
+
+		# enable WAL mode
+		self.con.execute("pragma journal_mode=wal")
+
 		self.cur.execute("""CREATE TABLE IF NOT EXISTS records (
 			record_key TEXT PRIMARY KEY NOT NULL,
 			record_cid BLOB NOT NULL
