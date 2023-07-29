@@ -116,17 +116,17 @@ class MSTNode(ABC):
 			return sentinel
 		return self.vals[i]
 	
-	def get_range(self, key_min: KTYPE, key_max: KTYPE) -> Iterable[Tuple[KTYPE, VTYPE]]:
-		raise Exception("oops i broke it")
+	def get_range(self, key_min: KTYPE, key_max: KTYPE, reverse: bool=False) -> Iterable[Tuple[KTYPE, VTYPE]]:
 		# currently inclusive, exclusive I thiiiink
-		print("range", self._gte_index(key_min), self._gte_index(key_max))
+		if reverse:
+			raise Exception("todo")
 		start, end = self._gte_index(key_min), self._gte_index(key_max)
+		if self.subtrees[start] is not None:
+				yield from self.subtrees[start].get_range(key_min, key_max)
 		for i in range(start, end):
 			yield self.keys[i], self.vals[i]
 			if self.subtrees[i + 1] is not None:
 				yield from self.subtrees[i + 1].get_range(key_min, key_max)
-		#if self.subtrees[end] is not None:
-		#	yield from self.subtrees[end].get_range(key_min, key_max)
 
 	def put(self, key: KTYPE, val: VTYPE, created: set) -> Self:
 		if self.subtrees == (None,): # special case for empty tree
@@ -305,6 +305,9 @@ class MST:
 	def get(self, key: KTYPE, sentinel: Any=None) -> VTYPE | Any:
 		return self.root.get(key, sentinel)
 
+	def get_range(self, key_min: KTYPE, key_max: KTYPE, reverse: bool=False) -> Iterable[Tuple[KTYPE, VTYPE]]:
+		return self.root.get_range(key_min, key_max, reverse)
+
 	def __getitem__(self, key: KTYPE) -> VTYPE:
 		value = self.get(key)
 		if value is None: # TODO: use a proper sentinel object
@@ -442,3 +445,41 @@ if __name__ == "__main__":
 	# we should be back to identical trees again
 	assert(tree1 == tree2)
 	assert(tree1 == backup) # and identical to the copy we made earlier
+
+
+	# testing range iteration
+	tree = MST.new_with(StrlenNode)
+	tree["0"] = None
+	tree["01"] = None
+	tree["02"] = None
+	tree["1"] = None
+	tree["12"] = None
+	tree["13"] = None
+	tree["2"] = None
+
+	assert(list(tree.get_range("02", "3")) == [
+		('02', None),
+		('1', None),
+		('12', None),
+		('13', None),
+		('2', None)
+	])
+
+	# end value is exclusive, not inclusive
+	assert(list(tree.get_range("0", "13")) == [
+		('0', None),
+		('01', None),
+		('02', None),
+		('1', None),
+		('12', None)
+	])
+
+	# protip, add a null char to get a pseudo-includive end value
+	assert(list(tree.get_range("0", "13\0")) == [
+		('0', None),
+		('01', None),
+		('02', None),
+		('1', None),
+		('12', None),
+		('13', None)
+	])
