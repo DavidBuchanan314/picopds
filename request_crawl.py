@@ -11,11 +11,10 @@ auth = jwt.encode({
 	"exp": int(time.time()) + 60*60 # 1h
 }, privkey, algorithm="ES256K")
 
-# TODO: complain that this really ought to be a POST
-r = requests.get(
+r = requests.post(
 	f"https://{BGS_SERVER}/xrpc/com.atproto.sync.requestCrawl",
-	params={"hostname": PDS_SERVER},
+	json={"hostname": PDS_SERVER},
 	headers={"Authorization": "Bearer " + auth}
 )
-print(r.ok)
+print(r.ok, r.status_code)
 print(r.content)
