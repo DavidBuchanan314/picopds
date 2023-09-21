@@ -1,7 +1,5 @@
 from cryptography.hazmat.primitives.asymmetric import ec
-from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature
 import multiformats
 import dag_cbor
 import hashlib

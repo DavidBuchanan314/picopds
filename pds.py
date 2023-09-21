@@ -125,7 +125,7 @@ async def sync_subscribe_repos(request: web.Request):
 	async with firehose_queues_lock:
 		firehose_queues.add(queue)
 
-	print("NEW FIREHOSE CLIENT", request.remote, request.headers.get("x-forwarded-for"))
+	print("NEW FIREHOSE CLIENT", request.remote, request.headers.get("x-forwarded-for"), request.query)
 
 	try:
 		while True:

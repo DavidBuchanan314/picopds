@@ -156,7 +156,8 @@ class Repo:
 				"version": 3,
 				"data": self.tree.cid,
 				"rev": tid_now(),
-				"did": self.did
+				"did": self.did,
+				"prev": None,
 			}
 			commit["sig"] = raw_sign(self.signing_key, dag_cbor.encode(commit))
 			commit_blob = dag_cbor.encode(commit)
@@ -185,7 +186,7 @@ class Repo:
 		) VALUES (?, ?)""", list(self.tree.get_all_blocks()))
 		self.con.commit()
 
-	def _build_firehose_blob_for_commit(self,
+	"""def _build_firehose_blob_for_commit(self,
 		ops: list,
 		prev_commit_cid: CID,
 		commit_cid: CID,
@@ -199,6 +200,7 @@ class Repo:
 			"ops": ops,
 			"seq": int(time.time()*1000000), # TODO: don't use timestamp (requires persisting firehose history)
 			"rev": tid_now(),
+			"since": None,
 			"repo": self.did,
 			"time": timestamp_str_now(),
 			"blobs": referenced_blobs,
@@ -206,7 +208,7 @@ class Repo:
 			"commit": commit_cid,
 			"rebase": False,
 			"tooBig": False # TODO: actually check lol
-		})
+		})"""
 
 	# XXX: we need a separate codepath for putrecord - we could leak blob refcounts, among other things
 	def create_record(self, collection, value, rkey=None) -> Tuple[str, CID, bytes]:
@@ -228,13 +230,15 @@ class Repo:
 		for block in new_blocks:
 			db_block_inserts.append((bytes(block.cid), block.serialised))
 
-		prev_commit_seq, prev_commit = self.cur.execute("SELECT commit_seq, commit_cid FROM commits ORDER BY commit_seq DESC LIMIT 1").fetchone()
-		#prev_commit_cid = CID.decode(prev_commit)
+		prev_commit_seq, prev_commit_block = self.cur.execute("SELECT commit_seq, block_value FROM commits INNER JOIN blocks ON block_cid=commit_cid ORDER BY commit_seq DESC LIMIT 1").fetchone()
+		prev_commit = dag_cbor.decode(prev_commit_block)
 
+		new_commit_rev = tid_now()
 		commit = {
 			"version": 3,
 			"data": self.tree.cid,
-			"rev": tid_now(),
+			"rev": new_commit_rev,
+			"prev": None,
 			"did": self.did
 		}
 		commit["sig"] = raw_sign(self.signing_key, dag_cbor.encode(commit))
@@ -254,7 +258,9 @@ class Repo:
 				"action": "create"
 			}],
 			"seq": int(time.time()*1000000), # TODO: don't use timestamp (requires persisting firehose history)
-			"rev": tid_now(),
+			"rev": new_commit_rev,
+			"since": prev_commit.get("rev"),
+			"prev": None,
 			"repo": self.did,
 			"time": timestamp_str_now(),
 			"blobs": list(referenced_blobs),
@@ -302,13 +308,15 @@ class Repo:
 			db_block_inserts.append((bytes(block.cid), block.serialised))
 
 
-		prev_commit_seq, prev_commit = self.cur.execute("SELECT commit_seq, commit_cid FROM commits ORDER BY commit_seq DESC LIMIT 1").fetchone()
-		#prev_commit_cid = CID.decode(prev_commit)
+		prev_commit_seq, prev_commit_block = self.cur.execute("SELECT commit_seq, block_value FROM commits INNER JOIN blocks ON block_cid=commit_cid ORDER BY commit_seq DESC LIMIT 1").fetchone()
+		prev_commit = dag_cbor.decode(prev_commit_block)
 
+		new_commit_rev = tid_now()
 		commit = {
 			"version": 3,
 			"data": self.tree.cid,
-			"rev": tid_now(),
+			"rev": new_commit_rev,
+			"prev": None,
 			"did": self.did
 		}
 		commit["sig"] = raw_sign(self.signing_key, dag_cbor.encode(commit))
@@ -328,7 +336,9 @@ class Repo:
 				"action": "delete"
 			}],
 			"seq": int(time.time()*1000000), # TODO: don't use timestamp (requires persisting firehose history)
-			"rev": tid_now(),
+			"rev": new_commit_rev,
+			"since": prev_commit.get("rev"),
+			"prev": None,
 			"repo": self.did,
 			"time": timestamp_str_now(),
 			"blobs": [],
