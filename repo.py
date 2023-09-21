@@ -10,7 +10,7 @@ import operator
 import sqlite3
 import random
 import time
-import datetime
+from datetime import datetime, timezone
 from aiohttp import web
 
 
@@ -21,15 +21,22 @@ from record_serdes import enumerate_record_cids
 
 B32_CHARSET = "234567abcdefghijklmnopqrstuvwxyz"
 
-def tid_now():
-	nanos = int(time.time()*1000000)
-	clkid = random.randrange(1<<10)
-	tid_int = (nanos << 10) | clkid
+def tid_now(): # XXX: this is not strongly guaranteed to be monotonic
+	micros = int(time.time()*1000000)
+	clkid = random.randrange(1<<10) # we're not sharded so might as well randomise for enhanced collision resistance
+	tid_int = (micros << 10) | clkid
 	return "".join(B32_CHARSET[(tid_int >> (60-(i * 5))) & 31] for i in range(13))
 
 def hash_to_cid(data: bytes, codec="dag-cbor") -> CID:
 	digest = multihash.digest(data, "sha2-256")
 	return CID("base58btc", 1, codec, digest)
+
+# mimic js Date.prototype.toISOString() behaviour
+def dt_to_str(dt: datetime) -> str:
+	return dt.astimezone(timezone.utc).replace(tzinfo=None).isoformat(timespec="milliseconds") + "Z"
+
+def timestamp_str_now() -> str:
+	return dt_to_str(datetime.now())
 
 class ATNode(MSTNode):
 	@staticmethod
@@ -146,9 +153,9 @@ class Repo:
 		# make an empty first commit, if it doesn't already exist
 		if self.cur.execute("SELECT * FROM commits WHERE commit_seq=0").fetchone() is None:
 			commit = {
-				"version": 2,
+				"version": 3,
 				"data": self.tree.cid,
-				"prev": None,
+				"rev": tid_now(),
 				"did": self.did
 			}
 			commit["sig"] = raw_sign(self.signing_key, dag_cbor.encode(commit))
@@ -191,9 +198,9 @@ class Repo:
 		}) + dag_cbor.encode({
 			"ops": ops,
 			"seq": int(time.time()*1000000), # TODO: don't use timestamp (requires persisting firehose history)
-			"prev": prev_commit_cid,
+			"rev": tid_now(),
 			"repo": self.did,
-			"time": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+			"time": timestamp_str_now(),
 			"blobs": referenced_blobs,
 			"blocks": carfile.serialise([commit_cid], db_block_inserts),
 			"commit": commit_cid,
@@ -222,12 +229,12 @@ class Repo:
 			db_block_inserts.append((bytes(block.cid), block.serialised))
 
 		prev_commit_seq, prev_commit = self.cur.execute("SELECT commit_seq, commit_cid FROM commits ORDER BY commit_seq DESC LIMIT 1").fetchone()
-		prev_commit_cid = CID.decode(prev_commit)
+		#prev_commit_cid = CID.decode(prev_commit)
 
 		commit = {
-			"version": 2,
+			"version": 3,
 			"data": self.tree.cid,
-			"prev": prev_commit_cid,
+			"rev": tid_now(),
 			"did": self.did
 		}
 		commit["sig"] = raw_sign(self.signing_key, dag_cbor.encode(commit))
@@ -247,9 +254,9 @@ class Repo:
 				"action": "create"
 			}],
 			"seq": int(time.time()*1000000), # TODO: don't use timestamp (requires persisting firehose history)
-			"prev": prev_commit_cid, # TODO: is this correct?
+			"rev": tid_now(),
 			"repo": self.did,
-			"time": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+			"time": timestamp_str_now(),
 			"blobs": list(referenced_blobs),
 			"blocks": carfile.serialise([commit_cid], db_block_inserts),
 			"commit": commit_cid,
@@ -296,12 +303,12 @@ class Repo:
 
 
 		prev_commit_seq, prev_commit = self.cur.execute("SELECT commit_seq, commit_cid FROM commits ORDER BY commit_seq DESC LIMIT 1").fetchone()
-		prev_commit_cid = CID.decode(prev_commit)
+		#prev_commit_cid = CID.decode(prev_commit)
 
 		commit = {
-			"version": 2,
+			"version": 3,
 			"data": self.tree.cid,
-			"prev": prev_commit_cid,
+			"rev": tid_now(),
 			"did": self.did
 		}
 		commit["sig"] = raw_sign(self.signing_key, dag_cbor.encode(commit))
@@ -321,9 +328,9 @@ class Repo:
 				"action": "delete"
 			}],
 			"seq": int(time.time()*1000000), # TODO: don't use timestamp (requires persisting firehose history)
-			"prev": prev_commit_cid, # TODO: is this correct?
+			"rev": tid_now(),
 			"repo": self.did,
-			"time": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+			"time": timestamp_str_now(),
 			"blobs": [],
 			"blocks": carfile.serialise([commit_cid], db_block_inserts),
 			"commit": commit_cid,
