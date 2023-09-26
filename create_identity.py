@@ -10,7 +10,7 @@ from signing import raw_sign
 
 from config import HANDLE, PDS_SERVER, PLC_SERVER
 
-def create_did_pubkey(pubkey: ec.EllipticCurvePublicKey):
+def encode_did_pubkey(pubkey: ec.EllipticCurvePublicKey):
 	assert(type(pubkey.curve) is ec.SECP256K1)
 	compressed_public_bytes = pubkey.public_bytes(
 		serialization.Encoding.X962,
@@ -39,10 +39,10 @@ with open("privkey.pem", "wb") as keyfile:
 genesis = {
 	"type": "plc_operation",
 	"rotationKeys": [
-		create_did_pubkey(pubkey),
+		encode_did_pubkey(pubkey),
 	],
 	"verificationMethods": {
-		"atproto": create_did_pubkey(pubkey), #XXX should really be separate from rotationKeys
+		"atproto": encode_did_pubkey(pubkey), #XXX should really be separate from rotationKeys
 	},
 	"alsoKnownAs": [
 		"at://" + HANDLE
