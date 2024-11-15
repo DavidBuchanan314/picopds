@@ -1,3 +1,6 @@
+> [!NOTE]  
+> My current focus is on [millipds](https://github.com/DavidBuchanan314/millipds), a more "production grade" rewrite of picopds. picopds is no longer maintained (not that it ever really was in the first place, lol).
+
 # picopds
 A minimum viable atproto PDS for protocol experimentation purposes
 
